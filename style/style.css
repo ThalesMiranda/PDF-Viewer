@@ -202,3 +202,25 @@
             border-top: 1px solid #DDDDDD;
             height: 40px;
         }
+
+        .rename-btn {
+            background-color: #0474ac; 
+            color: #FFFFFF;
+            border: none;
+            padding: 10px 15px;
+            width: 100%;
+            margin-top: 10px; 
+            cursor: pointer;
+            font-size: 0.9em;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .rename-btn:hover {
+            background-color: #035a86;
+        }
+
+        .rename-btn:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }

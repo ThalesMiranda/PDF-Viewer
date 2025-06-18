@@ -21,6 +21,7 @@
             <div class="upload-section">
                 <button class="upload-btn" id="uploadButton">Carregar PDF</button>
                 <input type="file" id="fileInput" accept=".pdf" multiple>
+                <button class="rename-btn" id="renameAllButton">Renomear Arquivos</button>
             </div>
             <div class="file-list-container">
                 <ul class="file-list" id="fileList"></ul>
@@ -54,9 +55,10 @@
         document.addEventListener('DOMContentLoaded', () => {
             const uploadButton = document.getElementById('uploadButton');
             const fileInput = document.getElementById('fileInput');
-            const fileListElem = document.getElementById('fileList'); // Renomeado para evitar conflito
+            const fileListElem = document.getElementById('fileList'); 
             const pdfTitleHeader = document.getElementById('pdfTitleHeader');
-            
+            const renameAllButton = document.getElementById('renameAllButton');
+
             const previewBox = document.getElementById('previewBox');
             const pdfCanvas = document.getElementById('pdfCanvas');
             const previewMessage = document.getElementById('previewMessage');
@@ -66,19 +68,20 @@
             const downloadPdfButton = document.getElementById('downloadPdfButton');
             const deletePdfButton = document.getElementById('deletePdfButton');
 
-            let uploadedFiles = [];
-            let selectedFileObject = null; // Guarda o objeto File selecionado
-            let currentPdfDoc = null; // Guarda o documento PDF carregado pelo PDF.js
+            let filesData = []; 
+            let selectedFileObject = null;
+            let currentPdfDoc = null;
 
             uploadButton.addEventListener('click', () => fileInput.click());
 
             fileInput.addEventListener('change', (event) => {
-                const files = Array.from(event.target.files); // Converte FileList para Array
+                const files = Array.from(event.target.files);
                 let newFilesAdded = false;
                 files.forEach(file => {
                     if (file.type === "application/pdf") {
-                        if (!uploadedFiles.find(f => f.name === file.name && f.size === file.size)) {
-                            uploadedFiles.push(file);
+                        if (!filesData.find(f => f.originalFile.name === file.name && f.originalFile.size === file.size)) {
+                            // Adiciona como um objeto
+                            filesData.push({ originalFile: file, displayName: file.name });
                             newFilesAdded = true;
                         }
                     } else {
@@ -91,46 +94,45 @@
                 fileInput.value = '';
             });
 
+            // FUNÇÃO DE RENDERIZAÇÃO MODIFICADA
             function renderFileList() {
                 fileListElem.innerHTML = '';
-                uploadedFiles.forEach((file) => { // Não precisa de index aqui
+                filesData.forEach((fileObj) => {
                     const listItem = document.createElement('li');
-                    listItem.textContent = file.name;
-                    listItem.dataset.fileName = file.name; // Usar nome como identificador único (assumindo nomes únicos)
+                    listItem.textContent = fileObj.displayName; // Usa o displayName
+                    listItem.dataset.originalName = fileObj.originalFile.name;
 
-                    if (selectedFileObject && selectedFileObject.name === file.name) {
+                    if (selectedFileObject && selectedFileObject.originalFile.name === fileObj.originalFile.name) {
                         listItem.classList.add('selected');
                     }
-
                     listItem.addEventListener('click', () => {
-                        // Encontra o objeto File correto no array
-                        const fileToSelect = uploadedFiles.find(f => f.name === listItem.dataset.fileName);
+                        const fileToSelect = filesData.find(f => f.originalFile.name === listItem.dataset.originalName);
                         if (fileToSelect) {
                            handleFileSelection(fileToSelect, listItem);
                         }
                     });
                     fileListElem.appendChild(listItem);
                 });
+                // Habilita/desabilita botão de renomear
+                renameAllButton.disabled = filesData.length === 0;
             }
 
-            async function handleFileSelection(file, listItem) {
-                if (selectedFileObject === file) return; // Evita recarregar o mesmo arquivo
+            async function handleFileSelection(fileObj, listItem) {
+                if (selectedFileObject === fileObj) return;
 
-                // Atualiza seleção na lista
                 const currentlySelected = fileListElem.querySelector('.selected');
                 if (currentlySelected) {
                     currentlySelected.classList.remove('selected');
                 }
                 listItem.classList.add('selected');
                 
-                selectedFileObject = file;
-                pdfTitleHeader.textContent = file.name;
+                selectedFileObject = fileObj;
+                pdfTitleHeader.textContent = fileObj.displayName; // Usa o displayName
                 updateActionButtonsState(true);
 
-                // Limpa preview anterior e mostra loader
                 const canvasContext = pdfCanvas.getContext('2d');
                 canvasContext.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
-                pdfCanvas.removeAttribute('width'); // Reset canvas dimensions
+                pdfCanvas.removeAttribute('width');
                 pdfCanvas.removeAttribute('height');
                 previewMessage.textContent = '';
                 previewMessage.style.display = 'none';
@@ -138,34 +140,25 @@
                 loader.style.display = 'block';
 
                 try {
-                    const arrayBuffer = await file.arrayBuffer();
+                    const arrayBuffer = await fileObj.originalFile.arrayBuffer();
                     currentPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    const pageNumber = 1;
-                    const page = await currentPdfDoc.getPage(pageNumber);
-                    
-                    const desiredWidth = previewBox.clientWidth - 20; // Largura do container - padding
+                    const page = await currentPdfDoc.getPage(1);
+                    const desiredWidth = previewBox.clientWidth - 20;
                     const viewport = page.getViewport({ scale: 1 });
                     const scale = desiredWidth / viewport.width;
                     const scaledViewport = page.getViewport({ scale: scale });
-
                     pdfCanvas.height = scaledViewport.height;
                     pdfCanvas.width = scaledViewport.width;
                     pdfCanvas.style.display = 'block';
-
-                    const renderContext = {
-                        canvasContext: canvasContext,
-                        viewport: scaledViewport
-                    };
-                    await page.render(renderContext).promise;
+                    await page.render({ canvasContext: canvasContext, viewport: scaledViewport }).promise;
                     previewMessage.style.display = 'none';
-
                 } catch (error) {
                     console.error('Erro ao renderizar PDF:', error);
                     currentPdfDoc = null;
                     pdfCanvas.style.display = 'none';
-                    previewMessage.textContent = `Erro ao carregar "${file.name}": ${error.message || 'Detalhes no console.'}`;
+                    previewMessage.textContent = `Erro ao carregar "${fileObj.displayName}": ${error.message || 'Detalhes no console.'}`;
                     previewMessage.style.display = 'block';
-                    updateActionButtonsState(false); // Desabilita ações se o PDF falhar
+                    updateActionButtonsState(false);
                 } finally {
                     loader.style.display = 'none';
                 }
@@ -195,37 +188,118 @@
             
             openPdfButton.addEventListener('click', () => {
                 if (selectedFileObject) {
-                    const fileURL = URL.createObjectURL(selectedFileObject);
-                    window.open(fileURL, '_blank');
-                    // URL.revokeObjectURL(fileURL) // Boa prática, mas pode fechar a aba rápido demais.
-                                                // O navegador geralmente lida com isso no fechamento da aba.
+                    window.open(URL.createObjectURL(selectedFileObject.originalFile), '_blank');
                 }
             });
 
             downloadPdfButton.addEventListener('click', () => {
                 if (selectedFileObject) {
                     const link = document.createElement('a');
-                    link.href = URL.createObjectURL(selectedFileObject);
-                    link.download = selectedFileObject.name;
+                    link.href = URL.createObjectURL(selectedFileObject.originalFile);
+                    link.download = selectedFileObject.displayName; // Usa o displayName!
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    URL.revokeObjectURL(link.href); // Limpa o object URL após o download
+                    URL.revokeObjectURL(link.href);
                 }
             });
 
             deletePdfButton.addEventListener('click', () => {
                 if (selectedFileObject) {
-                    if (confirm(`Tem certeza que deseja remover '${selectedFileObject.name}' da lista?`)) {
-                        uploadedFiles = uploadedFiles.filter(f => f.name !== selectedFileObject.name || f.size !== selectedFileObject.size);
+                    if (confirm(`Tem certeza que deseja remover '${selectedFileObject.displayName}' da lista?`)) {
+                        filesData = filesData.filter(f => f.originalFile.name !== selectedFileObject.originalFile.name);
                         resetPreview();
                         renderFileList();
                     }
                 }
             });
+renameAllButton.addEventListener('click', async () => {
+                renameAllButton.disabled = true;
+                renameAllButton.textContent = 'Renomeando...';
+
+                // Usando Promise.all para processar todos os arquivos em paralelo
+                const renamePromises = filesData.map(fileObj => extractNewName(fileObj.originalFile));
+
+                const newNames = await Promise.all(renamePromises);
+
+                newNames.forEach((newName, index) => {
+                    if (newName) {
+                        filesData[index].displayName = newName;
+                    }
+                });
+
+                renderFileList();
+                // Se um arquivo estava selecionado, atualiza seu título no header
+                if (selectedFileObject) {
+                    pdfTitleHeader.textContent = selectedFileObject.displayName;
+                }
+
+                renameAllButton.disabled = false;
+                renameAllButton.textContent = 'Renomear Arquivos';
+            });
+
+            async function extractNewName(file) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    
+                    // --- MÉTODO 1: TENTAR METADADOS ---
+                    const metadata = await pdfDoc.getMetadata();
+                    const info = metadata.info;
+                    let title = info.Title;
+                    let author = info.Author;
+                    
+                    // Limpa títulos e autores genéricos
+                    if (title && (title.toLowerCase().includes('untitled') || title.toLowerCase().includes('sem título'))) title = '';
+                    if (author && (author.toLowerCase().includes('microsoft') || author.toLowerCase().includes('word'))) author = '';
+
+                    if (title) {
+                        // Remove espaços extras e caracteres inválidos para nomes de arquivo
+                        const cleanTitle = title.replace(/[\/\\?%*:|"<>]/g, '-').trim();
+                        const cleanAuthor = author ? author.replace(/[\/\\?%*:|"<>]/g, '-').trim() : '';
+                        return cleanAuthor ? `${cleanTitle} - ${cleanAuthor}.pdf` : `${cleanTitle}.pdf`;
+                    }
+                    
+                    // --- MÉTODO 2: FALLBACK PARA TEXTO DA PRIMEIRA PÁGINA ---
+                    const page = await pdfDoc.getPage(1);
+                    const textContent = await page.getTextContent();
+                    
+                    if (textContent.items.length > 0) {
+                        // Heurística: Encontra o texto com a maior "fonte" na metade superior da página
+                        const pageViewport = page.getViewport({ scale: 1 });
+                        let largestItem = null;
+                        let maxFontSize = 0;
+
+                        textContent.items.forEach(item => {
+                            const fontSize = item.transform[0]; // Escala X, bom indicador de tamanho da fonte
+                            const isTopHalf = item.transform[5] > pageViewport.height / 2;
+
+                            if (isTopHalf && fontSize > maxFontSize && item.str.trim().length > 3) {
+                                maxFontSize = fontSize;
+                                largestItem = item;
+                            }
+                        });
+
+                        if (largestItem) {
+                            const extractedTitle = largestItem.str.replace(/[\/\\?%*:|"<>]/g, '-').trim();
+                            return `${extractedTitle}.pdf`;
+                        }
+                    }
+
+                    // --- ÚLTIMO CASO: Manter o nome original ---
+                    return file.name;
+
+                } catch (error) {
+                    console.error(`Falha ao processar ${file.name}:`, error);
+                    return file.name; // Retorna o nome original em caso de erro
+                }
+            }
+            // ############# FIM DA NOVA FUNCIONALIDADE #############
+
 
             // Estado inicial
             resetPreview(); 
+            renameAllButton.disabled = true;
         });
     </script>
 
