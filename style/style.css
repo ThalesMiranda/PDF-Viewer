@@ -1,188 +1,204 @@
-  /* Reset básico e configurações globais */
         body, html {
             margin: 0;
             padding: 0;
             height: 100%;
-            font-family: Arial, Helvetica, sans-serif; /* Fonte sans-serif moderna e limpa */
-            background-color: #FFFFFF; /* Fundo geral branco */
-            color: #333333; /* Cor de texto principal */
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #FFFFFF;
+            color: #333333;
+            font-size: 16px; 
         }
 
         * {
             box-sizing: border-box;
         }
 
-        /* Cabeçalho */
         header {
-            background-color: #F5F5F5; /* Cinza claro para o cabeçalho */
-            padding: 15px 25px;
+            background-color: #FFFFFF;
+            padding: 10px 25px;
             display: flex;
             align-items: center;
             border-bottom: 1px solid #DDDDDD;
-            height: 80px; /* Altura fixa para o cabeçalho */
-
+            height: 70px;
         }
 
-        header .logo {
+        header .logo-container {
+            display: flex;
+            align-items: center;
+        }
 
-            padding-top: 10px;
-            padding-bottom: 10px;
+        header .logo-img {
+            height: 70px;
+            width: auto;
+            margin-right: 10px;
         }
 
         header h1 {
             margin: 0;
-            font-size: 1.5em; /* Mesmo tamanho do logo para consistência */
+            font-size: 1.8em;
             color: #333333;
+            font-weight: 600;
         }
 
-        /* Container Principal (Flex para duas colunas) */
+
         .container {
             display: flex;
-            height: calc(100vh - 100px); /* Altura total da viewport menos cabeçalho e rodapé */
+            height: calc(100vh - 110px); 
         }
 
-        /* Painel Esquerdo (Lista de Arquivos) */
         .left-pane {
-            width: 30%; /* Largura do painel esquerdo */
-            background-color: #F5F5F5; /* Cinza claro, igual ao cabeçalho */
-            padding: 20px;
+            width: 320px;
+            background-color: #FFFFFF;
+            padding: 0;
             border-right: 1px solid #DDDDDD;
-            overflow-y: auto; /* Scroll se a lista for grande */
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .upload-section {
+            padding: 20px;
+            border-bottom: 1px solid #DDDDDD;
         }
 
         .upload-btn {
-            background-color: #008080; /* Teal - Cor Primária */
-            /* background-color: #FF7F50; */ /* Coral - Cor de Destaque (alternativa) */
+            background-color: #008080;
             color: #FFFFFF;
             border: none;
             padding: 12px 18px;
             width: 100%;
-            margin-bottom: 20px;
             cursor: pointer;
             font-size: 1em;
             border-radius: 4px;
             text-align: center;
         }
+        .upload-btn:hover { background-color: #006D6D; }
+        #fileInput { display: none; }
 
-        .upload-btn:hover {
-            background-color: #006D6D; /* Teal mais escuro no hover */
-            /* background-color: #E6683C; */ /* Coral mais escuro no hover (se usar Coral) */
+        .file-list-container {
+            flex-grow: 1;
+            overflow-y: auto;
         }
-
-        .search-bar {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #CCCCCC;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-
-        .file-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
+        .file-list { list-style: none; padding: 0; margin: 0; }
         .file-list li {
-            padding: 12px 10px;
+            padding: 15px 20px;
             border-bottom: 1px solid #EEEEEE;
             cursor: pointer;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis; /* Mostra '...' se o nome for muito longo */
+            text-overflow: ellipsis;
             font-size: 0.9em;
             color: #333333;
         }
-
-        .file-list li:last-child {
-            border-bottom: none;
-        }
-
-        .file-list li:hover {
-            background-color: #E0F2F7; /* Tom muito sutil de Azul Claro no hover */
-        }
-
+        .file-list li:last-child { border-bottom: none; }
+        .file-list li:hover { background-color: #E9F5F5; }
         .file-list li.selected {
-            background-color: #B0E0E6; /* Azul Claro para item selecionado */
-            color: #005050; /* Tom de Teal mais escuro para o texto selecionado, para contraste */
+            background-color: #B0E0E6;
+            color: #005050;
             font-weight: bold;
         }
 
-        /* Painel Direito (Visualização do PDF) */
         .right-pane {
-            width: 70%; /* Largura do painel direito */
-            padding: 25px;
-            background-color: #FFFFFF; /* Fundo branco */
-            overflow-y: auto; /* Scroll se o conteúdo for grande */
-            display: flex;
-            flex-direction: column;
-        }
-
-        .pdf-preview-area {
-            flex-grow: 1; /* Ocupa o espaço disponível */
+            flex-grow: 1;
+            padding: 20px; 
+            background-color: #F5F5F5;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
         
-        .pdf-title {
-            font-size: 1.3em;
+        .pdf-title-header {
+            font-size: 1.2em;
             color: #333333;
-            margin-top: 0;
             margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #EEEEEE;
+            padding: 15px;
+            border-bottom: 1px solid #DDDDDD;
+            background-color: #FFFFFF;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            flex-shrink: 0;
+        }
+
+        .pdf-preview-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #FFFFFF;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            position: relative;
         }
 
         .preview-box {
-            flex-grow: 1; /* Ocupa o espaço vertical disponível */
-            border: 2px dashed #CCCCCC;
+            flex-grow: 1;
+            border: 1px solid #E0E0E0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
             color: #777777;
-            background-color: #FAFAFA; /* Fundo muito sutil para a caixa de preview */
-            min-height: 300px; /* Altura mínima para a caixa de preview */
-            padding: 20px;
-            border-radius: 4px;
-            margin-bottom: 20px;
+            background-color: #FFFFFF;
+            min-height: 300px;
+            padding: 10px; 
+            border-radius: 3px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        #pdfCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+        }
+        .preview-message {
+            font-size: 0.95em;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #008080;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
         }
 
-        .preview-box p {
-            margin: 5px 0;
-        }
 
+        .pdf-actions {
+            padding-top: 15px;
+            border-top: 1px solid #EEEEEE;
+            text-align: right;
+        }
         .pdf-actions button {
             background-color: #EFEFEF;
             border: 1px solid #CCCCCC;
             padding: 10px 15px;
-            margin-right: 10px;
+            margin-left: 10px;
             cursor: pointer;
             border-radius: 4px;
             color: #333333;
             font-size: 0.9em;
         }
-
-        .pdf-actions button:hover {
-            background-color: #DDDDDD;
-        }
-
-        .pdf-actions button:last-child {
-            margin-right: 0;
-        }
+        .pdf-actions button:hover { background-color: #DDDDDD; }
         
-        /* Rodapé */
         footer {
-            background-color: #F5F5F5; /* Cinza claro, igual ao cabeçalho */
+            background-color: #F5F5F5;
             color: #555555;
             text-align: center;
             padding: 12px 0;
             font-size: 0.85em;
             border-top: 1px solid #DDDDDD;
-            height: 40px; /* Altura fixa para o rodapé */
+            height: 40px;
         }

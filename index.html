@@ -4,40 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pdf Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <link rel="stylesheet" href="style/style.css">
-</head>
+  </head>
 <body>
 
     <header>
-        <div class="logo">
-          <img src="imgs/Logo-removebg-preview.png" alt="" srcset="">
+        <div class="logo-container">
+             <img src="imgs/Logo-removebg-preview.png" alt="Logo Pdf Viewer" class="logo-img">
         </div>
     </header>
 
     <main class="container">
         <aside class="left-pane">
-            <button class="upload-btn">Carregar PDF</button>
-            <ul class="file-list">
-                <li><span>Relatorio_Anual_Completo_Final.pdf</span></li>
-                <li class="selected"><span>Apresentacao_Resultados_Trimestre_Muito_Longo.pdf</span></li>
-                <li><span>Documento_Cliente_XYZ.pdf</span></li>
-                <li><span>Manual_Usuario_Produto_ABC.pdf</span></li>
-                <li><span>Especificacoes_Tecnicas_v3.pdf</span></li>
-                <li><span>Proposta_Comercial_Empresa_Grande.pdf</span></li>
-            </ul>
+            <div class="upload-section">
+                <button class="upload-btn" id="uploadButton">Carregar PDF</button>
+                <input type="file" id="fileInput" accept=".pdf" multiple>
+            </div>
+            <div class="file-list-container">
+                <ul class="file-list" id="fileList"></ul>
+            </div>
         </aside>
 
         <section class="right-pane">
+            <div class="pdf-title-header" id="pdfTitleHeader">
+                Nenhum arquivo selecionado
+            </div>
             <div class="pdf-preview-area">
-                <h2 class="pdf-title">Apresentacao_Resultados_Trimestre_Muito_Longo.pdf</h2>
-                <div class="preview-box">
-                    <p>A pré-visualização da primeira página do PDF aparecerá aqui.</p>
-                    <p>(Quando um arquivo estiver selecionado e a funcionalidade implementada)</p>
+                <div class="loader" id="loader"></div>
+                <div class="preview-box" id="previewBox">
+                    <canvas id="pdfCanvas"></canvas>
+                    <p class="preview-message" id="previewMessage">Selecione ou carregue um arquivo PDF para visualizar sua primeira página.</p>
                 </div>
                 <div class="pdf-actions">
-                    <button>Abrir PDF Completo</button>
-                    <button>Baixar</button>
-                    <button>Excluir</button>
+                    <button id="openPdfButton" disabled>Abrir PDF Completo</button>
+                    <button id="downloadPdfButton" disabled>Baixar</button>
+                    <button id="deletePdfButton" disabled>Excluir</button>
                 </div>
             </div>
         </section>
@@ -46,6 +49,185 @@
     <footer>
         <p>&copy; 2025 Pdf Viewer. Todos os direitos reservados.</p>
     </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const uploadButton = document.getElementById('uploadButton');
+            const fileInput = document.getElementById('fileInput');
+            const fileListElem = document.getElementById('fileList'); // Renomeado para evitar conflito
+            const pdfTitleHeader = document.getElementById('pdfTitleHeader');
+            
+            const previewBox = document.getElementById('previewBox');
+            const pdfCanvas = document.getElementById('pdfCanvas');
+            const previewMessage = document.getElementById('previewMessage');
+            const loader = document.getElementById('loader');
+            
+            const openPdfButton = document.getElementById('openPdfButton');
+            const downloadPdfButton = document.getElementById('downloadPdfButton');
+            const deletePdfButton = document.getElementById('deletePdfButton');
+
+            let uploadedFiles = [];
+            let selectedFileObject = null; // Guarda o objeto File selecionado
+            let currentPdfDoc = null; // Guarda o documento PDF carregado pelo PDF.js
+
+            uploadButton.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', (event) => {
+                const files = Array.from(event.target.files); // Converte FileList para Array
+                let newFilesAdded = false;
+                files.forEach(file => {
+                    if (file.type === "application/pdf") {
+                        if (!uploadedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                            uploadedFiles.push(file);
+                            newFilesAdded = true;
+                        }
+                    } else {
+                        alert(`Arquivo '${file.name}' não é um PDF e será ignorado.`);
+                    }
+                });
+                if (newFilesAdded) {
+                    renderFileList();
+                }
+                fileInput.value = '';
+            });
+
+            function renderFileList() {
+                fileListElem.innerHTML = '';
+                uploadedFiles.forEach((file) => { // Não precisa de index aqui
+                    const listItem = document.createElement('li');
+                    listItem.textContent = file.name;
+                    listItem.dataset.fileName = file.name; // Usar nome como identificador único (assumindo nomes únicos)
+
+                    if (selectedFileObject && selectedFileObject.name === file.name) {
+                        listItem.classList.add('selected');
+                    }
+
+                    listItem.addEventListener('click', () => {
+                        // Encontra o objeto File correto no array
+                        const fileToSelect = uploadedFiles.find(f => f.name === listItem.dataset.fileName);
+                        if (fileToSelect) {
+                           handleFileSelection(fileToSelect, listItem);
+                        }
+                    });
+                    fileListElem.appendChild(listItem);
+                });
+            }
+
+            async function handleFileSelection(file, listItem) {
+                if (selectedFileObject === file) return; // Evita recarregar o mesmo arquivo
+
+                // Atualiza seleção na lista
+                const currentlySelected = fileListElem.querySelector('.selected');
+                if (currentlySelected) {
+                    currentlySelected.classList.remove('selected');
+                }
+                listItem.classList.add('selected');
+                
+                selectedFileObject = file;
+                pdfTitleHeader.textContent = file.name;
+                updateActionButtonsState(true);
+
+                // Limpa preview anterior e mostra loader
+                const canvasContext = pdfCanvas.getContext('2d');
+                canvasContext.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+                pdfCanvas.removeAttribute('width'); // Reset canvas dimensions
+                pdfCanvas.removeAttribute('height');
+                previewMessage.textContent = '';
+                previewMessage.style.display = 'none';
+                pdfCanvas.style.display = 'none';
+                loader.style.display = 'block';
+
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    currentPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    const pageNumber = 1;
+                    const page = await currentPdfDoc.getPage(pageNumber);
+                    
+                    const desiredWidth = previewBox.clientWidth - 20; // Largura do container - padding
+                    const viewport = page.getViewport({ scale: 1 });
+                    const scale = desiredWidth / viewport.width;
+                    const scaledViewport = page.getViewport({ scale: scale });
+
+                    pdfCanvas.height = scaledViewport.height;
+                    pdfCanvas.width = scaledViewport.width;
+                    pdfCanvas.style.display = 'block';
+
+                    const renderContext = {
+                        canvasContext: canvasContext,
+                        viewport: scaledViewport
+                    };
+                    await page.render(renderContext).promise;
+                    previewMessage.style.display = 'none';
+
+                } catch (error) {
+                    console.error('Erro ao renderizar PDF:', error);
+                    currentPdfDoc = null;
+                    pdfCanvas.style.display = 'none';
+                    previewMessage.textContent = `Erro ao carregar "${file.name}": ${error.message || 'Detalhes no console.'}`;
+                    previewMessage.style.display = 'block';
+                    updateActionButtonsState(false); // Desabilita ações se o PDF falhar
+                } finally {
+                    loader.style.display = 'none';
+                }
+            }
+            
+            function updateActionButtonsState(enabled) {
+                openPdfButton.disabled = !enabled || !selectedFileObject;
+                downloadPdfButton.disabled = !enabled || !selectedFileObject;
+                deletePdfButton.disabled = !enabled || !selectedFileObject;
+            }
+
+            function resetPreview() {
+                pdfTitleHeader.textContent = 'Nenhum arquivo selecionado';
+                const canvasContext = pdfCanvas.getContext('2d');
+                canvasContext.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+                pdfCanvas.style.display = 'none';
+                previewMessage.textContent = 'Selecione ou carregue um arquivo PDF para visualizar sua primeira página.';
+                previewMessage.style.display = 'block';
+                selectedFileObject = null;
+                currentPdfDoc = null;
+                updateActionButtonsState(false);
+                const currentlySelectedListItem = fileListElem.querySelector('.selected');
+                if (currentlySelectedListItem) {
+                    currentlySelectedListItem.classList.remove('selected');
+                }
+            }
+            
+            openPdfButton.addEventListener('click', () => {
+                if (selectedFileObject) {
+                    const fileURL = URL.createObjectURL(selectedFileObject);
+                    window.open(fileURL, '_blank');
+                    // URL.revokeObjectURL(fileURL) // Boa prática, mas pode fechar a aba rápido demais.
+                                                // O navegador geralmente lida com isso no fechamento da aba.
+                }
+            });
+
+            downloadPdfButton.addEventListener('click', () => {
+                if (selectedFileObject) {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(selectedFileObject);
+                    link.download = selectedFileObject.name;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href); // Limpa o object URL após o download
+                }
+            });
+
+            deletePdfButton.addEventListener('click', () => {
+                if (selectedFileObject) {
+                    if (confirm(`Tem certeza que deseja remover '${selectedFileObject.name}' da lista?`)) {
+                        uploadedFiles = uploadedFiles.filter(f => f.name !== selectedFileObject.name || f.size !== selectedFileObject.size);
+                        resetPreview();
+                        renderFileList();
+                    }
+                }
+            });
+
+            // Estado inicial
+            resetPreview(); 
+        });
+    </script>
 
 </body>
 </html>
